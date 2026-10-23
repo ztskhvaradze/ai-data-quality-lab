@@ -1,0 +1,6 @@
+[theme]
+base = "light"
+baseFontSize = 17
+
+[browser]
+gatherUsageStats = false
