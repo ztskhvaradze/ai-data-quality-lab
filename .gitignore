@@ -15,3 +15,13 @@ wheels/
 # Secrets
 .env
 .streamlit/secrets.toml
+
+# IDE / local agent tooling (symlinks into .venv, not portable)
+.idea/
+.agents/
+.claude/
+
+# Local artefacts
+redesign_screenshots/
+.env.*
+!.env.example

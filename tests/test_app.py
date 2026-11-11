@@ -20,6 +20,11 @@ def html(at) -> str:
     return "\n".join(m.value for m in at.markdown)
 
 
+def page_html(at) -> str:
+    """Rendered markdown without the CSS block (which names every effect class)."""
+    return "\n".join(m.value for m in at.markdown if not m.value.lstrip().startswith("<style>"))
+
+
 def card_values(at) -> list[str]:
     lab = at.session_state.lab
     return [lab.pipeline_status, lab.basic_status, lab.targeted_status]
@@ -111,6 +116,7 @@ def no_live_llm(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "")
+    monkeypatch.setenv("DQ_ANIMATIONS", "off")
 
 
 def captions(at) -> str:
@@ -208,3 +214,56 @@ def test_reset_clears_chat_history():
     ask_chat(at, "Is customer 1042's subscription active?")
     click(at, "btn_reset")
     assert at.session_state.lab.chat == []
+
+
+# --- Presentation polish: one-shot animations and decluttered layout ---------------
+
+def test_lesson_panel_hidden_until_toggled(at):
+    assert "What this demonstrates" not in "\n".join(s.value for s in at.subheader)
+    at.toggle(key="show_lesson").set_value(True).run()
+    assert "What this demonstrates" in "\n".join(s.value for s in at.subheader)
+
+
+def test_step_animation_lists_real_check_results(at):
+    click(at, "btn_run_pipeline")
+    click(at, "btn_basic_checks")
+    page = html(at)
+    assert "✅ Customer IDs are unique" in page
+    assert "✅ Row count matches source" in page
+
+    click(at, "btn_targeted_checks")
+    assert "❌ Subscription status matches source" in html(at)
+
+
+def test_failure_reveal_plays_once(at):
+    click(at, "btn_run_pipeline")
+    click(at, "btn_basic_checks")
+    click(at, "btn_targeted_checks")
+    assert "dq-reveal" in page_html(at)
+    at.run()  # any later rerun shows the result without replaying the effect
+    assert "dq-reveal" not in page_html(at)
+    assert "The pipeline is green. The data is wrong." in html(at)
+
+
+def test_celebration_only_after_fixing_a_seen_failure(at):
+    for key in ("btn_run_pipeline", "btn_basic_checks", "btn_targeted_checks",
+                "btn_repair", "btn_basic_checks", "btn_targeted_checks"):
+        click(at, key)
+    assert "dq-celebrate" in page_html(at)
+
+
+def test_no_celebration_on_clean_first_run(at):
+    at.toggle(key="defect_toggle").set_value(False).run()
+    for key in ("btn_run_pipeline", "btn_basic_checks", "btn_targeted_checks"):
+        click(at, key)
+    assert "All checks pass on the current target data." in html(at)
+    assert "dq-celebrate" not in page_html(at)
+
+
+def test_reset_forgets_the_seen_failure(at):
+    for key in ("btn_run_pipeline", "btn_basic_checks", "btn_targeted_checks", "btn_reset"):
+        click(at, key)
+    at.toggle(key="defect_toggle").set_value(False).run()
+    for key in ("btn_run_pipeline", "btn_basic_checks", "btn_targeted_checks"):
+        click(at, key)
+    assert "dq-celebrate" not in page_html(at)

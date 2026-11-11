@@ -1,7 +1,16 @@
 [project]
 name = "ai-data-quality-lab"
 version = "0.1.0"
-description = "Add your description here"
+description = "Streamlit demo: AI-assisted data quality checks on a synthetic pipeline"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "streamlit>=1.50",
+    "anthropic>=2.1",
+    "openai>=3.0",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]

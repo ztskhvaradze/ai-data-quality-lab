@@ -1,6 +1,15 @@
 [theme]
-base = "light"
-baseFontSize = 17
+# Matches the talk deck's EPAM dark palette: navy background, cyan/teal accents.
+base = "dark"
+primaryColor = "#00F6FF"
+backgroundColor = "#0E1424"
+secondaryBackgroundColor = "#172333"
+textColor = "#F2F5FF"
+baseFontSize = 19
+
+[client]
+# Hides the Deploy button and developer menu on the projected screen.
+toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
