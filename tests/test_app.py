@@ -53,14 +53,13 @@ def test_full_presenter_sequence(at):
 
     click(at, "btn_basic_checks")                                   # D
     assert card_values(at) == ["SUCCEEDED", "PASSED", "NOT RUN"]
-    assert "Everything looks green so far" in html(at)
+    assert "Everything looks green so far" not in html(at)
 
     click(at, "btn_targeted_checks")                                # E
     assert card_values(at) == ["SUCCEEDED", "PASSED", "FAILED"]
     page = html(at)
-    assert "The pipeline is green. The data is wrong." in page
+    assert "The pipeline is green. The data is wrong." not in page
     assert "❌ FAILED" in page
-    assert "customer **1042**" in page
     issue_table = at.dataframe[0].value
     assert set(issue_table["customer_id"]) == {1042}
     assert set(issue_table["expected"]) == {"active"}
@@ -218,12 +217,6 @@ def test_reset_clears_chat_history():
 
 # --- Presentation polish: one-shot animations and decluttered layout ---------------
 
-def test_lesson_panel_hidden_until_toggled(at):
-    assert "What this demonstrates" not in "\n".join(s.value for s in at.subheader)
-    at.toggle(key="show_lesson").set_value(True).run()
-    assert "What this demonstrates" in "\n".join(s.value for s in at.subheader)
-
-
 def test_step_animation_lists_real_check_results(at):
     click(at, "btn_run_pipeline")
     click(at, "btn_basic_checks")
@@ -233,16 +226,6 @@ def test_step_animation_lists_real_check_results(at):
 
     click(at, "btn_targeted_checks")
     assert "❌ Subscription status matches source" in html(at)
-
-
-def test_failure_reveal_plays_once(at):
-    click(at, "btn_run_pipeline")
-    click(at, "btn_basic_checks")
-    click(at, "btn_targeted_checks")
-    assert "dq-reveal" in page_html(at)
-    at.run()  # any later rerun shows the result without replaying the effect
-    assert "dq-reveal" not in page_html(at)
-    assert "The pipeline is green. The data is wrong." in html(at)
 
 
 def test_celebration_only_after_fixing_a_seen_failure(at):

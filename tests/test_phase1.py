@@ -222,7 +222,7 @@ def test_get_target_record_is_plain_json_friendly_dict():
     lab.run_pipeline()
     assert lab.get_target_record(DEMO_CUSTOMER_ID) == {
         "customer_id": 1042,
-        "customer_name": "Ana Gelashvili",
+        "customer_name": "Ana Kapanadze",
         "plan": "Premium",
         "subscription_status": "expired",
         "expiry_date": "2026-12-31",

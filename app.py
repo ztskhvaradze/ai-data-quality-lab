@@ -22,7 +22,7 @@ from ai_assistant import (
     NO_RECORD,
     AssistantConfig,
 )
-from demo_data import AS_OF_DATE, DEMO_CUSTOMER_ID
+from demo_data import DEMO_CUSTOMER_ID
 from demo_lab import (
     FAILED,
     NOT_RUN,
@@ -132,6 +132,20 @@ div.stButton > button[kind="primary"] {color: #0E1424;}
 /* Streamlit captions (sidebar explanations, table/timeline hints) default to small text
    that is hard to read from projector distance; bring them closer to body size. */
 [data-testid="stCaptionContainer"], .stCaption {font-size: 1rem !important;}
+
+/* Live Chat dialog: near-full-screen and large type so the audience can read it. */
+div[data-testid="stDialog"] div[role="dialog"] {
+    width: 94vw !important; max-width: 94vw !important; min-height: 85vh;
+}
+div[data-testid="stDialog"] [data-testid="stChatMessage"] {padding: 1rem 1.25rem;}
+div[data-testid="stDialog"] [data-testid="stChatMessage"] p,
+div[data-testid="stDialog"] [data-testid="stChatMessage"] li {
+    font-size: 1.6rem !important; line-height: 1.5;
+}
+div[data-testid="stDialog"] [data-testid="stChatMessage"] .dq-badge {font-size: 1.1rem;}
+div[data-testid="stDialog"] [data-testid="stChatInput"] textarea {font-size: 1.5rem !important;}
+div[data-testid="stDialog"] .stButton button p {font-size: 1.3rem !important;}
+div[data-testid="stDialog"] [data-testid="stCaptionContainer"] {font-size: 1.3rem !important;}
 
 /* One-shot moments, applied only on the rerun right after the action. */
 @keyframes dq-glow-bad {0%, 100% {box-shadow: 0 0 0 rgba(248, 113, 113, 0);}
@@ -327,34 +341,15 @@ def render_header() -> None:
 
 def render_sidebar(lab: DemoLab, config: AssistantConfig) -> None:
     with st.sidebar:
-        st.header("Presenter options")
         st.toggle(
             "Inject deliberate defect on next pipeline run",
             key="defect_toggle",
             on_change=on_defect_toggle,
         )
-        st.caption(
-            f"When on, the transformation applies a stale legacy override that sets customer "
-            f"{DEMO_CUSTOMER_ID} to 'expired'. Reset turns it back on; Repair turns it off."
-        )
-        st.divider()
-        st.subheader("AI Assistant")
         if "ai_mode" not in st.session_state:
             st.session_state.ai_mode = MODE_LIVE if config.live_available else MODE_DEMO
         st.radio("Assistant mode", [MODE_LIVE, MODE_DEMO], key="ai_mode",
                  format_func=MODE_LABELS.get)
-        if config.live_available:
-            st.caption(f"Live provider: **{config.label}** · API key: configured")
-        else:
-            st.caption(f"Live LLM unavailable: {config.problem}")
-        st.caption("Demo mode applies a fixed template to the same record. It never calls an "
-                   "LLM, and its answers are always labelled as simulated.")
-        st.caption("Open Ask AI from the main workflow (step 3) to use Live Chat.")
-        st.divider()
-        st.toggle("Show “What this demonstrates” panel", key="show_lesson", value=False,
-                  help="Off keeps the projected screen focused on the demo; the talk covers it.")
-        st.caption(f"Demo customer: **{DEMO_CUSTOMER_ID}**")
-        st.caption(f"Business rule date (fixed): **{AS_OF_DATE.isoformat()}**")
 
 
 def _flow_state(done: bool, active: bool, attention: bool) -> str:
@@ -453,13 +448,6 @@ def render_workflow(lab: DemoLab, config: AssistantConfig) -> None:
     if st.session_state.get("flash"):
         st.warning(st.session_state.flash)
 
-    st.markdown(
-        f'<div class="dq-ai-callout">💬 <b>Ask AI</b> reads the live target table — the same '
-        f'data your pipeline just produced. Try: <i>“{escape(SUGGESTED_CHAT_QUESTIONS[0])}”</i> '
-        'using the <b>Open Live Chat</b> button above.</div>',
-        unsafe_allow_html=True,
-    )
-
     if st.session_state.live_chat_open:
         render_live_chat_dialog(lab, config)
 
@@ -525,15 +513,6 @@ def render_status(lab: DemoLab, just_did: str | None = None) -> None:
     just_validated = just_did == STEP_TARGETED_CHECKS
     if statuses == (SUCCEEDED, PASSED, FAILED):
         st.session_state.saw_failure = True
-        banner("bad", "The pipeline is green. The data is wrong.",
-               "Execution succeeded and basic checks passed, but business validation found "
-               "incorrect values that an AI application would consume.",
-               effect="dq-reveal" if just_validated else "",
-               extra=check_types_banner(FAILED))
-    elif statuses == (SUCCEEDED, PASSED, NOT_RUN):
-        banner("hint", "Everything looks green so far…",
-               "The pipeline succeeded and basic checks passed. But is the data actually correct?",
-               extra=check_types_banner(NOT_RUN))
     elif statuses == (SUCCEEDED, PASSED, PASSED):
         # Celebrate only the fix of a failure the audience has seen, not a clean first run.
         celebrate = just_validated and st.session_state.get("saw_failure", False)
@@ -563,7 +542,6 @@ def render_issue(lab: DemoLab) -> None:
         rule_names = [c.name for c in lab.targeted_results
                       if any(m.customer_id == cid for m in c.mismatches)]
         first = mismatches[0]
-        src = lab.source[lab.source["customer_id"] == cid].iloc[0]
 
         with st.container(border=True):
             mc1, mc2, mc3, mc4, mc5 = st.columns(5)
@@ -576,13 +554,6 @@ def render_issue(lab: DemoLab) -> None:
             mc5.markdown(_issue_metric("Detection rule", f"{len(rule_names)} check(s)"),
                          unsafe_allow_html=True)
             st.caption(" · ".join(rule_names))
-            st.markdown(
-                f"**In plain words:** the source system says customer **{cid}** is "
-                f"**{src['status']}** (subscription runs until {src['expiry_date']}), but the "
-                f"target table says **{first.actual}**. Nothing crashed and no row went "
-                f"missing, so the basic checks could not see it. An AI assistant reading this "
-                f"target would tell the customer their subscription has {first.actual}."
-            )
 
     with st.expander("Technical details"):
         rows = [
@@ -648,8 +619,7 @@ def badge(kind: str, text: str) -> str:
 def render_live_chat_dialog(lab: DemoLab, config: AssistantConfig) -> None:
     mode = effective_mode(config)
     if mode == MODE_LIVE:
-        st.caption(f"🟢 Live LLM · {config.label} · each answer is grounded in one record "
-                   "retrieved from the current target table")
+        st.caption(f"🟢 Live LLM · {config.label}")
     else:
         reason = "" if config.live_available else f" (Live LLM unavailable: {config.problem})"
         st.caption(f"🧪 Deterministic demo mode · template answers, not an LLM{reason}")
@@ -660,9 +630,6 @@ def render_live_chat_dialog(lab: DemoLab, config: AssistantConfig) -> None:
             st.session_state.live_chat_open = False
             st.rerun()
         return
-
-    st.caption("⚖️ AI answers and data validation are separate: validation checks the data, "
-               "not the answer. An LLM can still misread or misinterpret correct data.")
 
     for turn in lab.chat:
         answer = turn.answer
@@ -720,28 +687,10 @@ def render_live_chat_dialog(lab: DemoLab, config: AssistantConfig) -> None:
             st.rerun()
 
 
-def render_lesson() -> None:
-    st.subheader("What this demonstrates")
-    st.markdown(
-        "- **Pipeline succeeded** only means the code ran without a technical error.\n"
-        "- **Basic checks** confirm structure: columns, IDs, row counts. "
-        "A wrong *value* passes them.\n"
-        "- **Targeted business checks** compare values with the source and with business "
-        "rules, which is where this defect shows up.\n"
-        "- AI applications trust their input data. The assistant gave a fluent answer from a "
-        "wrong record and had no way to know. Catch defects before the data is released.\n\n"
-        "*Limits:* data quality checks reduce some data-related risks; they do not guarantee "
-        "correct AI answers. An LLM can still misread valid data. This is one controlled "
-        "failure mode."
-    )
-
-
 def render_footer(lab: DemoLab) -> None:
     st.divider()
     with st.expander("📜 Event log", expanded=False):
         st.markdown("\n".join(f"- {escape(e)}" for e in lab.events))
-    if st.session_state.get("show_lesson"):
-        render_lesson()
 
 
 def main() -> None:
